@@ -1,0 +1,30 @@
+
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #f5f1f5;
+  background: #141218;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+#root {
+  min-height: 100vh;
+  padding: 48px 24px;
+  box-sizing: border-box;
+}
+
+h1 {
+  color: #f9a8d4;
+  text-align: center;
+}
+
+main > p {
+  color: #a9a0ad;
+  text-align: center;
+}
