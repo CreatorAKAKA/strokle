@@ -215,23 +215,23 @@ function Strokle() {
 
         <div className="strokle-hint-buttons">
           <button
-            className={showVocabularyHint ? 'revealed' : ''}
-            disabled={guesses.length < 3 || showVocabularyHint}
-            onClick={() => setShowVocabularyHint(true)}
-          >
-            <span className="hint-icon">語</span>
-            <span>Vocabulary</span>
-            <small>{guesses.length < 3 ? `${3 - guesses.length} left` : showVocabularyHint ? 'Revealed' : 'Unlock'}</small>
-          </button>
-
-          <button
             className={showStrokeHint ? 'revealed' : ''}
-            disabled={guesses.length < 5 || showStrokeHint}
+            disabled={guesses.length < 3 || showStrokeHint}
             onClick={() => setshowStrokeHint(true)}
           >
             <span className="hint-icon">筆</span>
             <span>Strokes</span>
-            <small>{guesses.length < 5 ? `${5 - guesses.length} left` : showStrokeHint ? 'Revealed' : 'Unlock'}</small>
+            <small>{guesses.length < 3 ? `${3 - guesses.length} left` : showStrokeHint ? 'Revealed' : 'Unlock'}</small>
+          </button>
+
+          <button
+            className={showVocabularyHint ? 'revealed' : ''}
+            disabled={guesses.length < 5 || showVocabularyHint}
+            onClick={() => setShowVocabularyHint(true)}
+          >
+            <span className="hint-icon">語</span>
+            <span>Vocabulary</span>
+            <small>{guesses.length < 5 ? `${5 - guesses.length} left` : showVocabularyHint ? 'Revealed' : 'Unlock'}</small>
           </button>
 
           <button
@@ -247,6 +247,9 @@ function Strokle() {
 
         {(finished || showVocabularyHint || showStrokeHint || showMeaningHint) && (
           <div className="strokle-hint-results">
+            {(showStrokeHint || finished) && (
+              <p>Stroke count: <strong>{strokeHint ?? 'Unknown'}</strong></p>
+            )}
 
             {(showVocabularyHint || finished) && (
               <div className="strokle-vocabulary-hint">
@@ -265,10 +268,6 @@ function Strokle() {
                   <p>No vocabulary hint available.</p>
                 )}
               </div>
-            )}
-
-            {(showStrokeHint || finished) && (
-              <p>Stroke count: <strong>{strokeHint ?? 'Unknown'}</strong></p>
             )}
 
             {(showMeaningHint || finished) && (
