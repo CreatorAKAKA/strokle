@@ -83,24 +83,30 @@ function Strokle() {
 
   console.log('Component statuses:', componentStatuses)
   
-  async function submitGuess() {
-    if (finished) return
+  async function submitGuess(
+    automaticGuess?: string,
+    nextTarget?: string
+  ) {
+    const automatic = automaticGuess !== undefined
 
-    const guess = input.trim()
+    if (finished && !automatic) return
+
+    const guess = automaticGuess ?? input.trim()
+    const currentTarget = nextTarget ?? target
 
     if (!Object.hasOwn(kanjiData, guess)) {
       setError('Kanji not in the current dictionary.')
       return
     }
 
-    if (guesses.includes(guess)) {
+    if (!automatic && guesses.includes(guess)) {
       setError('You already guessed this kanji.')
       return
     }
 
     
     try {
-      const matches = await matchVGKanji(guess, target)
+      const matches = await matchVGKanji(guess, currentTarget)
       console.table(matches)
       setComponentStatuses((previous) => {
         const updated = { ...previous }
@@ -145,25 +151,33 @@ function Strokle() {
     }
   }
 
-  function newGame(nextDifficulty: Difficulty = difficulty) {
+  async function newGame(
+    nextDifficulty: Difficulty = difficulty,
+    inheritGuess = false
+  ) {
+    const previousAnswer = target
     const pool = getAnswerPool(nextDifficulty)
 
     const candidates = pool.filter(
-      (kanji) => kanji !== target
+      (kanji) => kanji !== previousAnswer
     )
 
-    setDifficulty(nextDifficulty)
-
-    setTarget(
+    const nextTarget =
       candidates[Math.floor(Math.random() * candidates.length)]
       ?? pool[0]
-    )
+
+    setDifficulty(nextDifficulty)
+    setTarget(nextTarget)
     setGuesses([])
     setGuessColors({})
     setComponentStatuses({})
     setInput('')
     setError('')
     setRevealedHints([])
+
+    if (inheritGuess && previousAnswer !== nextTarget) {
+      await submitGuess(previousAnswer, nextTarget)
+    }
   }
 
   return (
@@ -371,7 +385,7 @@ function Strokle() {
           />
 
           <button
-            onClick={submitGuess}
+            onClick={() => submitGuess()}
             disabled={!input.trim()}
           >
             Guess
@@ -388,7 +402,7 @@ function Strokle() {
       {finished && (
         <div className="strokle-result">
 
-          <button onClick={() => newGame()}>
+          <button onClick={() => newGame(difficulty, true)}>
             Play Again
           </button>
         </div>

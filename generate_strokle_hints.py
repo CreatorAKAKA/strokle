@@ -1,10 +1,29 @@
 import json
 import re
 import unicodedata
+import math
+from wordfreq import get_frequency_dict, zipf_frequency
 from pathlib import Path
 from jamdict import Jamdict
 
 jam = Jamdict()
+
+frequency_dict = get_frequency_dict("ja", "best")
+
+
+def get_frequency(word):
+    exact = frequency_dict.get(word, 0)
+
+    if exact:
+        return math.log10(exact) + 9
+
+    has_kana = bool(re.search(r"[ぁ-ゖァ-ヺ]", word))
+
+    if has_kana:
+        estimated = zipf_frequency(word, "ja")
+        return max(0, estimated - 1.0)
+
+    return 0
 
 DATA_DIR = Path(__file__).resolve().parent / "src" / "data"
 
@@ -90,13 +109,16 @@ def get_vocabulary(kanji):
             if not definitions:
                 continue
 
-            score = get_priority(form.pri or [])
+            frequency = get_frequency(word)
+            priority = get_priority(form.pri or [])
 
-            # Prefer standard spellings
+            score = frequency * 100
+            score += min(priority, 100) * 0.3
             score -= 30 * len(form.info or [])
-
-            # Prefer concise vocabulary over long phrases
-            score -= max(0, len(word) - 3) * 5
+            score -= max(0, len(word) - 5) * 5
+            visible = word.replace(kanji, "")
+            if len(visible) == 1 and re.fullmatch(r"[ぁ-ゖァ-ヺ]", visible):
+                score -= 150
 
             entry_candidates.append({
                 "word": word.replace(kanji, "□"),
@@ -121,7 +143,10 @@ def get_vocabulary(kanji):
     seen = set()
 
     for item in ranked:
-        if item["word"] in seen:
+        if any(
+            item["word"] in previous or previous in item["word"]
+            for previous in seen
+        ):
             continue
 
         seen.add(item["word"])
@@ -135,36 +160,58 @@ def get_vocabulary(kanji):
         if len(selected) == 4:
             break
 
-    return selected
+    if len(selected) < 4:
+        for item in ranked:
+            if item["word"] in seen:
+                continue
 
+            seen.add(item["word"])
 
-with open(DATA_DIR / "strokle-hints.json", encoding="utf-8") as f:
-    hints = json.load(f)
+            selected.append({
+                "word": item["word"],
+                "reading": item["reading"],
+                "meaning": item["meaning"]
+            })
 
-for index, (kanji, data) in enumerate(hints.items(), 1):
-    data["vocabulary"] = get_vocabulary(kanji)
+            if len(selected) == 4:
+                break
 
-    print(
-        f"[{index}/{len(hints)}] {kanji}:",
-        [item["word"] for item in data["vocabulary"]],
-        flush=True
+    selected.sort(
+        key=lambda item: get_frequency(
+            item["word"].replace("□", kanji)
+        )
     )
 
-with open(
-    DATA_DIR / "strokle-hints.json",
-    "w",
-    encoding="utf-8"
-) as f:
-    json.dump(hints, f, ensure_ascii=False, indent=2)
+    return selected
 
-print("Done!")
+if __name__ == "__main__":
+    with open(DATA_DIR / "strokle-hints.json", encoding="utf-8") as f:
+        hints = json.load(f)
 
-from collections import Counter
+    for index, (kanji, data) in enumerate(hints.items(), 1):
+        data["vocabulary"] = get_vocabulary(kanji)
 
-counts = Counter(
-    len(data["vocabulary"])
-    for data in hints.values()
-)
+        print(
+            f"[{index}/{len(hints)}] {kanji}:",
+            [item["word"] for item in data["vocabulary"]],
+            flush=True
+        )
 
-for count, total in sorted(counts.items()):
-    print(f"{count} hints: {total} kanji")
+    with open(
+        DATA_DIR / "strokle-hints.json",
+        "w",
+        encoding="utf-8"
+    ) as f:
+        json.dump(hints, f, ensure_ascii=False, indent=2)
+
+    print("Done!")
+
+    from collections import Counter
+
+    counts = Counter(
+        len(data["vocabulary"])
+        for data in hints.values()
+    )
+
+    for count, total in sorted(counts.items()):
+        print(f"{count} hints: {total} kanji")
