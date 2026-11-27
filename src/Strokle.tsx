@@ -41,22 +41,19 @@ function Strokle() {
     Record<string, Record<string, MatchStatus>>
   >({})
   const [error, setError] = useState('')
-  const [showVocabularyHint, setShowVocabularyHint] = useState(false)
-  const [showStrokeHint, setshowStrokeHint] = useState(false)
-  const [showMeaningHint, setShowMeaningHint] = useState(false)
+  const [revealedHints, setRevealedHints] = useState<number[]>([])
+  const hintThresholds = [2, 4, 6, 8]
 
   const won = guesses.includes(target)
   const lost = guesses.length >= 9 && !won
   const finished = won || lost
-
-  const targetInfo =
-    joyoData[target as keyof typeof joyoData]
 
   const targetHints = (
     strokleHints as Record<string, {
       radical: string | null
       vocabulary: {
         word: string
+        reading: string
         meaning: string
       }[]
     }>
@@ -64,10 +61,21 @@ function Strokle() {
 
   const vocabularyHint = targetHints?.vocabulary ?? []
 
-  const strokeHint = targetInfo?.strokes ?? null
+  const targetInfo = (
+    joyoData as Record<string, {
+      readings_on: string[]
+      readings_kun: string[]
+    }>
+  )[target]
 
-  const meaningHint =
-    targetInfo?.meanings?.slice(0, 3).join('; ') || null
+  const hintCount = Math.min(
+    hintThresholds.length,
+    vocabularyHint.length
+  )
+
+  const nextHint = revealedHints.length
+  const allHintsRevealed = nextHint >= hintCount
+  const remaining = (hintThresholds[nextHint] ?? 0) - guesses.length
 
   const [componentStatuses, setComponentStatuses] =
     useState<Record<string, MatchStatus>>({})
@@ -155,9 +163,7 @@ function Strokle() {
     setComponentStatuses({})
     setInput('')
     setError('')
-    setShowVocabularyHint(false)
-    setshowStrokeHint(false)
-    setShowMeaningHint(false)
+    setRevealedHints([])
   }
 
   return (
@@ -209,75 +215,137 @@ function Strokle() {
         <span><i className="legend-absent" /> Not present</span>
       </div>
 
+      {finished && (
+        <h2 className="strokle-result">
+          {won
+            ? `正解！ Solved in ${guesses.length}/9`
+            : `The answer was ${target}`}
+        </h2>
+      )}
 
       <div className="strokle-hints">
-        <p className="strokle-hints-title">Need a hint?</p>
+        {!finished && (
+            <p className="strokle-hints-title">
+              Need a hint?
+            </p>
+          )}
 
-        <div className="strokle-hint-buttons">
-          <button
-            className={showStrokeHint ? 'revealed' : ''}
-            disabled={guesses.length < 3 || showStrokeHint}
-            onClick={() => setshowStrokeHint(true)}
-          >
-            <span className="hint-icon">筆</span>
-            <span>Strokes</span>
-            <small>{guesses.length < 3 ? `${3 - guesses.length} left` : showStrokeHint ? 'Revealed' : 'Unlock'}</small>
-          </button>
+        {!finished && (
+          <div className="strokle-hint-buttons">
+            <button
+              disabled={allHintsRevealed || remaining > 0}
+              onClick={() =>
+                setRevealedHints(previous => [...previous, nextHint])
+              }
+            >
+              <span className="hint-icon">語</span>
 
-          <button
-            className={showVocabularyHint ? 'revealed' : ''}
-            disabled={guesses.length < 5 || showVocabularyHint}
-            onClick={() => setShowVocabularyHint(true)}
-          >
-            <span className="hint-icon">語</span>
-            <span>Vocabulary</span>
-            <small>{guesses.length < 5 ? `${5 - guesses.length} left` : showVocabularyHint ? 'Revealed' : 'Unlock'}</small>
-          </button>
+              <span>
+                {hintCount === 0
+                  ? 'No hints available'
+                  : allHintsRevealed
+                    ? 'All hints revealed'
+                    : `Vocabulary hint ${nextHint + 1}/${hintCount}`}
+              </span>
 
-          <button
-            className={showMeaningHint ? 'revealed' : ''}
-            disabled={guesses.length < 7 || showMeaningHint}
-            onClick={() => setShowMeaningHint(true)}
-          >
-            <span className="hint-icon">あ</span>
-            <span>Meaning</span>
-            <small>{guesses.length < 7 ? `${7 - guesses.length} left` : showMeaningHint ? 'Revealed' : 'Unlock'}</small>
-          </button>
-        </div>
+              <small>
+                {allHintsRevealed
+                  ? ''
+                  : remaining > 0
+                    ? `${remaining} guesses left`
+                    : 'Unlock hint'}
+              </small>
+            </button>
+          </div>
+        )}
 
-        {(finished || showVocabularyHint || showStrokeHint || showMeaningHint) && (
+        {(finished || revealedHints.length > 0) && (
           <div className="strokle-hint-results">
-            {(showStrokeHint || finished) && (
-              <p>Stroke count: <strong>{strokeHint ?? 'Unknown'}</strong></p>
-            )}
+            {finished && targetInfo && (
+              <div className="strokle-answer-review">
+                <div className="strokle-answer-kanji">
+                  <KanjiGlyph
+                    kanji={target}
+                    groupColors={guessColors[target]}
+                  />
+                </div>
 
-            {(showVocabularyHint || finished) && (
-              <div className="strokle-vocabulary-hint">
-                <p>Vocabulary:</p>
+                <div className="strokle-answer-readings">
+                  <p>
+                    <span className="reading-label">音読み</span>
 
-                {vocabularyHint.length > 0 ? (
-                  vocabularyHint.map((item, index) => (
-                    <p key={index}>
-                      <strong>
-                        {item.word.replaceAll('□', finished ? target : '___')}
-                      </strong>
-                      {finished && ` — ${item.meaning}`}
-                    </p>
-                  ))
-                ) : (
-                  <p>No vocabulary hint available.</p>
-                )}
+                    <strong>
+                      {targetInfo.readings_on.map(reading =>
+                        reading.replace(/[\u3041-\u3096]/g, char =>
+                          String.fromCharCode(char.charCodeAt(0) + 0x60)
+                        )
+                      ).join('、') || '—'}
+                    </strong>
+                  </p>
+
+                  <p>
+                    <span className="reading-label">訓読み</span>
+
+                    <span>
+                      {targetInfo.readings_kun.length === 0 && '—'}
+
+                      {targetInfo.readings_kun.map((reading, index) => {
+                        const [stem, okurigana] = reading.split('.')
+
+                        return (
+                          <span key={index}>
+                            {index > 0 && '、'}
+                            <strong>{stem}</strong>
+                            <span className="reading-okurigana">
+                              {okurigana}
+                            </span>
+                          </span>
+                        )
+                      })}
+                    </span>
+                  </p>
+                </div>
               </div>
             )}
+            <div className="strokle-vocabulary-hint">
+              {finished ? (
+                <p className="strokle-review-heading">
+                  Vocabulary review
+                </p>
+              ) : (
+                <p>Vocabulary:</p>
+              )}
 
-            {(showMeaningHint || finished) && (
-              <p>Meaning: <strong>{meaningHint ?? 'Unknown'}</strong></p>
-            )}
+              {vocabularyHint.length > 0 ? (
+                vocabularyHint.map((item, index) =>
+                  finished || revealedHints.includes(index) ? (
+                    <div key={index} className="strokle-vocab-item">
+                      {finished ? (
+                        <>
+                          <ruby>
+                            {item.word.replaceAll('□', target)}
+                            <rt>{item.reading}</rt>
+                          </ruby>
 
+                          <span className="strokle-vocab-meaning">
+                            {item.meaning}
+                          </span>
+                        </>
+                      ) : (
+                        <strong>
+                          {item.word.replaceAll('□', '___')}
+                        </strong>
+                      )}
+                    </div>
+                  ) : null
+                )
+              ) : (
+                <p>No vocabulary hints available.</p>
+              )}
+            </div>
           </div>
         )}
       </div>
-
 
 
       {!finished && (
@@ -315,13 +383,10 @@ function Strokle() {
         <p className="strokle-error">{error}</p>
       )}
 
+      
+
       {finished && (
         <div className="strokle-result">
-          <h2>
-            {won
-              ? `正解！ Solved in ${guesses.length}/9`
-              : `The answer was ${target}`}
-          </h2>
 
           <button onClick={() => newGame()}>
             Play Again

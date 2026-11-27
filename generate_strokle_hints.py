@@ -42,21 +42,15 @@ def get_priority(tags):
 
 
 def get_vocabulary(kanji):
-    candidates = {}
+    candidates = []
 
     for entry in jam.lookup(
         f"%{kanji}%",
         lookup_chars=False,
         lookup_ne=False
     ).entries:
-        definitions = []
 
-        for sense in entry.senses:
-            for gloss in sense.gloss:
-                definitions.append(gloss.text)
-
-        if not definitions:
-            continue
+        entry_candidates = []
 
         for form in entry.kanji_forms:
             word = form.text
@@ -64,42 +58,97 @@ def get_vocabulary(kanji):
             if word.count(kanji) != 1 or len(word) < 2:
                 continue
 
-            kanji_count = len(re.findall(r"[一-龯]", word))
-            priority = get_priority(form.pri or [])
+            readings = [
+                kana for kana in entry.kana_forms
+                if not kana.nokanji
+                and (not kana.restr or word in kana.restr)
+            ]
 
-            score = priority
+            if not readings:
+                continue
 
-            if kanji_count >= 2:
-                score += 50
+            reading = max(
+                readings,
+                key=lambda kana:
+                    get_priority(kana.pri or [])
+                    - 30 * len(kana.info or [])
+            ).text
 
-            candidates[word] = {
+            definitions = []
+
+            for sense in entry.senses:
+                if sense.stagk and word not in sense.stagk:
+                    continue
+
+                if sense.stagr and reading not in sense.stagr:
+                    continue
+
+                for gloss in sense.gloss:
+                    if gloss.text not in definitions:
+                        definitions.append(gloss.text)
+
+            if not definitions:
+                continue
+
+            score = get_priority(form.pri or [])
+
+            # Prefer standard spellings
+            score -= 30 * len(form.info or [])
+
+            # Prefer concise vocabulary over long phrases
+            score -= max(0, len(word) - 3) * 5
+
+            entry_candidates.append({
                 "word": word.replace(kanji, "□"),
+                "reading": reading,
                 "meaning": "; ".join(definitions[:2]),
                 "score": score
-            }
+            })
+
+        # Keep only the best spelling from each entry
+        if entry_candidates:
+            candidates.append(
+                max(entry_candidates, key=lambda item: item["score"])
+            )
 
     ranked = sorted(
-        candidates.values(),
+        candidates,
         key=lambda item: item["score"],
         reverse=True
     )
 
-    return [
-        {
+    selected = []
+    seen = set()
+
+    for item in ranked:
+        if item["word"] in seen:
+            continue
+
+        seen.add(item["word"])
+
+        selected.append({
             "word": item["word"],
+            "reading": item["reading"],
             "meaning": item["meaning"]
-        }
-        for item in ranked[:3]
-    ]
+        })
+
+        if len(selected) == 4:
+            break
+
+    return selected
 
 
 with open(DATA_DIR / "strokle-hints.json", encoding="utf-8") as f:
     hints = json.load(f)
 
-for kanji, data in hints.items():
-    if not data["vocabulary"]:
-        data["vocabulary"] = get_vocabulary(kanji)
-        print(kanji, data["vocabulary"], flush=True)
+for index, (kanji, data) in enumerate(hints.items(), 1):
+    data["vocabulary"] = get_vocabulary(kanji)
+
+    print(
+        f"[{index}/{len(hints)}] {kanji}:",
+        [item["word"] for item in data["vocabulary"]],
+        flush=True
+    )
 
 with open(
     DATA_DIR / "strokle-hints.json",
@@ -109,6 +158,13 @@ with open(
     json.dump(hints, f, ensure_ascii=False, indent=2)
 
 print("Done!")
-print("Missing vocabulary:", sum(
-    not item["vocabulary"] for item in hints.values()
-))
+
+from collections import Counter
+
+counts = Counter(
+    len(data["vocabulary"])
+    for data in hints.values()
+)
+
+for count, total in sorted(counts.items()):
+    print(f"{count} hints: {total} kanji")

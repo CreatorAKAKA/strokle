@@ -260,7 +260,7 @@
 
 .strokle-hint-buttons {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
@@ -351,4 +351,110 @@
   background: #493043;
   color: #efa5ce;
   border-color: #efa5ce;
+}
+
+.strokle-vocab-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+}
+
+.strokle-vocab-item ruby {
+  font-size: 1.25rem;
+  font-weight: 600;
+  ruby-align: center;
+}
+
+.strokle-vocab-item rt {
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.strokle-answer-review {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  padding: 8px 0 20px;
+  margin: 0 0 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #493547;
+  border-radius: 0;
+}
+
+.strokle-answer-kanji {
+  flex-shrink: 0;
+}
+
+.strokle-answer-kanji .strokle-glyph {
+  width: 100px;
+  height: 100px;
+}
+
+.strokle-answer-readings {
+  text-align: left;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  min-width: 0;
+}
+
+.strokle-answer-readings p {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: baseline;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.reading-label {
+  font-size: 0.8rem;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.reading-okurigana {
+  font-weight: 400;
+  opacity: 0.35;
+}
+
+.strokle-answer-readings strong {
+  font-weight: 600;
+}
+
+.strokle-vocab-meaning {
+  font-size: 0.85rem;
+  opacity: 0.65;
+}
+
+.strokle-answer-review {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 8px 0 20px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #493547;
+}
+
+.strokle-hint-results .strokle-review-heading {
+  color: #f0a3cf;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.strokle-answer-review .strokle-answer-readings strong {
+  color: #f7eaf2;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.strokle-answer-readings p {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0;
 }
